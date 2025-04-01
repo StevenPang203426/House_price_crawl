@@ -8,7 +8,7 @@ def hk_property_scraper():
     with sync_playwright() as p:
         # 1. 浏览器配置
         browser = p.chromium.launch(
-            headless=False,  # 调试时可设为False
+            headless=False,  # 调试时可设为False，方便查看爬取过程
             channel="chrome",
             timeout=60000
         )
@@ -37,80 +37,106 @@ def hk_property_scraper():
         while current_page <= max_pages:
             print(f"\n▶ 正在处理第 {current_page} 页...")
 
-            # 等待内容加载
+            # 等待内容加载：可根据页面结构做微调
             page.wait_for_selector('.difilq-4.frWOjp', state="attached", timeout=10000)
 
-            # 模拟人类滚动行为
+            # 模拟人类滚动行为：可根据实际情况增删次数
             for _ in range(2):
                 page.mouse.wheel(0, 800)
                 time.sleep(1)
 
             # 获取当前页所有房产
-            properties = page.locator('.difilq-4.frWOjp').all()
-            print(f"  找到 {len(properties)} 个房产条目")
+            properties = page.locator('.difilq-4.frWOjp')
+            count_properties = properties.count()
+            print(f"  找到 {count_properties} 个房产条目")
 
             # 处理每个房产
-            for idx, prop in enumerate(properties, 1):
+            for idx in range(count_properties):
+                if idx == 0: continue
+                prop = properties.nth(idx)
                 try:
                     prop.scroll_into_view_if_needed()
                     time.sleep(0.2)
 
-                    # 数据提取
-                    name = prop.locator('.sc-qp0umg-12.gAqyCO').inner_text().strip()
-                    date = prop.locator('.sc-qp0umg-10.dUvXnm').first.inner_text()
+                    # -----------------------------
+                    # 提取数据
+                    # -----------------------------
 
-                    # 分割名称和位置
-                    name_parts = [p.strip() for p in name.split('\n') if p.strip()]
-                    prop_name = name_parts[0] if name_parts else 'N/A'
-                    location = name_parts[1] if len(name_parts) > 1 else ''
+                    # 1) 房产名称、位置
+                    name_elem = prop.locator('.sc-qp0umg-12.gAqyCO')
+                    if name_elem.count() > 0:
+                        name_text = name_elem.first.inner_text().strip()
+                        name_parts = [p.strip() for p in name_text.split('\n') if p.strip()]
+                        prop_name = name_parts[0] if len(name_parts) > 0 else 'N/A'
+                        location = name_parts[1] if len(name_parts) > 1 else 'N/A'
+                    else:
+                        prop_name = 'N/A'
+                        location = 'N/A'
 
-                    # 提取其他信息
-                    type_elems = prop.locator('.sc-qp0umg-10.dKaBvA').all()
-                    details = {
-                        'house_type': type_elems[0].inner_text() if len(type_elems) > 0 else 'N/A',
-                        'area': type_elems[1].inner_text() if len(type_elems) > 1 else 'N/A',
-                        'unit_price': type_elems[2].inner_text() if len(type_elems) > 2 else 'N/A',
-                        'price': prop.locator('.sc-oklxvf-6.lfWa-DB').inner_text(),
-                        'features': ' | '.join([
-                            f.inner_text()
-                            for f in prop.locator('.sc-qp0umg-13.gfFjGP span:not(.jrzAg)').all()
-                        ])
-                    }
+                    # 2) 成交日期（只取第一个出现的）
+                    # 使用CSS选择器（更简洁）
+                    css_selector = f'#__next > main > div.sc-1xa3s3j-1.hBUjWI > div > div.rmc-tabs-content-wrap > div.rmc-tabs-pane-wrap-active > div.difilq-3.ljLfya > div > div.infinite-scroll-component__outerdiv > div > div > div:nth-child(2) > div:nth-child({idx + 1}) > div > a > div:nth-child(1)'
 
-                    # 写入数据
+                    date_element = page.locator(css_selector)
+                    date = date_element.inner_text().strip() if date_element.count() > 0 else 'N/A'
+
+                    # 3) 户型、面积、单价等
+                    type_elems = prop.locator('.sc-qp0umg-10.dKaBvA')
+                    house_type = type_elems.nth(0).inner_text().strip() if type_elems.count() > 0 else 'N/A'
+                    area = type_elems.nth(1).inner_text().strip() if type_elems.count() > 1 else 'N/A'
+                    unit_price = type_elems.nth(2).inner_text().strip() if type_elems.count() > 2 else 'N/A'
+
+                    # 4) 价格及单位
+                    price_elem = prop.locator('.sc-oklxvf-6.lfWa-DB')
+                    if price_elem.count() > 0:
+                        price = price_elem.first.inner_text().strip()
+                    else:
+                        price = 'N/A'
+
+                    unit_elem = prop.locator('.sc-oklxvf-7.igTSok.case-price-unit')
+                    if unit_elem.count() > 0:
+                        price_unit = unit_elem.first.inner_text().strip()
+                        full_price = f"{price} {price_unit}"
+                    else:
+                        full_price = price
+
+                    # 5) 特色
+                    feature_spans = prop.locator('.sc-qp0umg-13.gfFjGP span:not(.jrzAg)')
+                    features_texts = []
+                    feature_count = feature_spans.count()
+                    for i in range(feature_count):
+                        features_texts.append(feature_spans.nth(i).inner_text().strip())
+                    features = ' | '.join(features_texts) if features_texts else 'N/A'
+
+                    # -----------------------------
+                    # 写入 CSV
+                    # -----------------------------
                     with open(output_file, 'a', newline='', encoding='utf-8-sig') as f:
                         writer = csv.writer(f)
                         writer.writerow([
                             prop_name,
                             location,
                             date,
-                            details['house_type'],
-                            details['price'],
-                            details['area'],
-                            details['unit_price'],
-                            details['features']
+                            house_type,
+                            full_price,
+                            area,
+                            unit_price,
+                            features
                         ])
-
-                    print(f"  ✓ [{idx}/{len(properties)}] 已保存: {prop_name}")
+                    print(f"  ✓ [{idx + 1}/{count_properties}] 已保存: {prop_name}")
 
                 except Exception as e:
-                    print(f"  ✕ 条目 {idx} 处理失败: {str(e)}")
+                    print(f"  ✕ 条目 {idx + 1} 处理失败: {str(e)}")
                     continue
 
-            # 5. 专用翻页逻辑 - 针对您提供的按钮结构
-            # 替换原来的翻页代码部分
-            # 检查是否可以找到并点击下一页按钮
-            # 翻页逻辑
+            # 5. 翻页逻辑
             if current_page <= 3:
                 next_XPath = 'xpath=/html/body/div/main/div[2]/div/div[2]/div[3]/div[3]/div/div[2]/ul/li[8]/a'
-            else :
+            else:
                 next_XPath = 'xpath=/html/body/div/main/div[2]/div/div[2]/div[3]/div[3]/div/div[2]/ul/li[9]/a'
-            try:
-                # 使用 XPath 定位到下一页按钮
-                next_button = page.locator(next_XPath
-                    ).first
 
-                # 确保按钮可见且未被禁用
+            try:
+                next_button = page.locator(next_XPath).first
                 if next_button.is_visible(timeout=5000):
                     is_disabled = next_button.get_attribute('aria-disabled')
                     if is_disabled != 'true':
@@ -118,14 +144,12 @@ def hk_property_scraper():
                         next_button.scroll_into_view_if_needed()
                         time.sleep(0.5)
 
-                        # 使用 JavaScript 点击按钮
                         page.evaluate('(element) => { element.click(); }', next_button.element_handle())
 
-                        # 等待新页面加载
                         page.wait_for_selector('.difilq-4.frWOjp', state="attached", timeout=15000)
                         current_page += 1
                         print(f"已成功翻到第 {current_page} 页")
-                        time.sleep(2)  # 等待页面完全加载
+                        time.sleep(2)
                     else:
                         print("已到达最后一页 (按钮禁用)")
                         break
