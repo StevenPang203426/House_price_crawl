@@ -2,38 +2,32 @@ from playwright.sync_api import sync_playwright
 import csv
 import time
 from datetime import datetime
-'''    # 九龍
 
-    
-    
-    
-    
-    
-    
-    
+from tensorflow.python.data.experimental.ops.testing import sleep
+
+
+# 区域URL字典
+REGION_URLS = {
+
+    "港島東-鰂魚涌": "https://www.hkp.com.hk/zh-hk/list/transaction/鰂魚涌-D-10040008",  # NAT
+    # 九龍
     "九龍-京士柏": "https://www.hkp.com.hk/zh-hk/list/transaction/京士柏-D-20050004",
     "九龍-九龍站": "https://www.hkp.com.hk/zh-hk/list/transaction/九龍站-D-20050001",
     "九龍-奧運": "https://www.hkp.com.hk/zh-hk/list/transaction/奧運-D-20050008",
-    
     "九龍-太子": "https://www.hkp.com.hk/zh-hk/list/transaction/太子-D-20050006",
     "九龍-油麻地": "https://www.hkp.com.hk/zh-hk/list/transaction/油麻地-D-20050007",
     "九龍-荔枝角": "https://www.hkp.com.hk/zh-hk/list/transaction/荔枝角-D-20060005",
     "九龍-長沙灣": "https://www.hkp.com.hk/zh-hk/list/transaction/長沙灣-D-20060002",
     "九龍-深水埗": "https://www.hkp.com.hk/zh-hk/list/transaction/深水埗-D-20060003",
-    
     "九龍-美孚": "https://www.hkp.com.hk/zh-hk/list/transaction/美孚-D-20060004",
     "九龍-紅磡": "https://www.hkp.com.hk/zh-hk/list/transaction/紅磡-D-20090005",
     "九龍-何文田": "https://www.hkp.com.hk/zh-hk/list/transaction/何文田-D-20090004",
-    
     "九龍-土瓜灣": "https://www.hkp.com.hk/zh-hk/list/transaction/土瓜灣-D-20090003",
     "九龍-九龍城": "https://www.hkp.com.hk/zh-hk/list/transaction/九龍城-D-20090001",
     "九龍-啟德": "https://www.hkp.com.hk/zh-hk/list/transaction/啟德-D-20090006",
-    
     "九龍-新蒲崗": "https://www.hkp.com.hk/zh-hk/list/transaction/新蒲崗-D-20080003",
-    
     "九龍-九龍灣": "https://www.hkp.com.hk/zh-hk/list/transaction/九龍灣-D-20070001",
     "九龍-油塘": "https://www.hkp.com.hk/zh-hk/list/transaction/油塘-D-20070004",
-
     "九龍-藍田": "https://www.hkp.com.hk/zh-hk/list/transaction/藍田-D-20070005",
     "九龍-坑口": "https://www.hkp.com.hk/zh-hk/list/transaction/坑口-D-20100001",
     "九龍-調景嶺": "https://www.hkp.com.hk/zh-hk/list/transaction/調景嶺-D-20100003",
@@ -42,30 +36,23 @@ from datetime import datetime
     "九龍-寶琳": "https://www.hkp.com.hk/zh-hk/list/transaction/寶琳-D-20100005",
     "九龍-清水灣": "https://www.hkp.com.hk/zh-hk/list/transaction/清水灣-D-30100001",
     "九龍-西貢": "https://www.hkp.com.hk/zh-hk/list/transaction/西貢-D-30100002",
-
     # 新界
     "新界-清水灣": "https://www.hkp.com.hk/zh-hk/list/transaction/清水灣-D-30100001",
     "新界-西貢": "https://www.hkp.com.hk/zh-hk/list/transaction/西貢-D-30100002",
-    
     "新界-沙田": "https://www.hkp.com.hk/zh-hk/list/transaction/沙田-D-30170003",
     "新界-大圍": "https://www.hkp.com.hk/zh-hk/list/transaction/大圍-D-30170002",
     "新界-馬鞍山": "https://www.hkp.com.hk/zh-hk/list/transaction/馬鞍山-D-30170004",
-    
     "新界-大埔": "https://www.hkp.com.hk/zh-hk/list/transaction/大埔-D-30160001",
-
     "新界-古洞": "https://www.hkp.com.hk/zh-hk/list/transaction/古洞-D-30150003",
-
     "新界-天水圍": "https://www.hkp.com.hk/zh-hk/list/transaction/天水圍-D-30140003",
     "新界-錦田": "https://www.hkp.com.hk/zh-hk/list/transaction/錦田-D-30140001",
     "新界-元朗市中心": "https://www.hkp.com.hk/zh-hk/list/transaction/元朗市中心-D-30140002",
     "新界-洪水橋": "https://www.hkp.com.hk/zh-hk/list/transaction/洪水橋-D-30140004",
-
     "新界-掃管笏": "https://www.hkp.com.hk/zh-hk/list/transaction/掃管笏-D-30130003",
     "新界-藍地": "https://www.hkp.com.hk/zh-hk/list/transaction/藍地-D-30130004",
     "新界-屯門碼頭": "https://www.hkp.com.hk/zh-hk/list/transaction/屯門碼頭-D-30130002",
     "新界-屯門市中心": "https://www.hkp.com.hk/zh-hk/list/transaction/屯門市中心-D-30130001",
     "新界-荃灣": "https://www.hkp.com.hk/zh-hk/list/transaction/荃灣-D-30110001",
-
     "新界-馬灣": "https://www.hkp.com.hk/zh-hk/list/transaction/馬灣-D-30110003",
     "新界-葵涌": "https://www.hkp.com.hk/zh-hk/list/transaction/葵涌-D-30120001",
     "新界-青衣": "https://www.hkp.com.hk/zh-hk/list/transaction/青衣-D-30120002",
@@ -76,29 +63,19 @@ from datetime import datetime
     "港島東-杏花邨": "https://www.hkp.com.hk/zh-hk/list/transaction/杏花邨-D-10040003",
     "港島東-小西灣": "https://www.hkp.com.hk/zh-hk/list/transaction/小西灣-D-10040005",
     "港島東-筲箕灣": "https://www.hkp.com.hk/zh-hk/list/transaction/筲箕灣-D-10040006",
-
-
     # 灣仔區
-
     "灣仔區-灣仔": "https://www.hkp.com.hk/zh-hk/list/transaction/灣仔-D-10020001",
-
-
     # 中西區
-
     "中西區-中半山": "https://www.hkp.com.hk/zh-hk/list/transaction/中半山-D-10010006",
     "中西區-堅尼地城": "https://www.hkp.com.hk/zh-hk/list/transaction/堅尼地城-D-10010001",
     "中西區-西營盤": "https://www.hkp.com.hk/zh-hk/list/transaction/西營盤-D-10010002",
     "中西區-西半山": "https://www.hkp.com.hk/zh-hk/list/transaction/西半山-D-10010005",
     "中西區-上環": "https://www.hkp.com.hk/zh-hk/list/transaction/上環-D-10010003",
     "中西區-山頂": "https://www.hkp.com.hk/zh-hk/list/transaction/山頂-D-10010007",
-
     # 南區
-
     "南區-壽臣山": "https://www.hkp.com.hk/zh-hk/list/transaction/壽臣山-D-10030007",
     "南區-淺水灣": "https://www.hkp.com.hk/zh-hk/list/transaction/淺水灣-D-10030006",
     "南區-鴨脷洲": "https://www.hkp.com.hk/zh-hk/list/transaction/鴨脷洲-D-10030003",
-    
-    
     "九龍-紅磡灣尖東": "https://www.hkp.com.hk/zh-hk/list/transaction/紅磡灣-尖東-D-20050003",  # NAT
     "九龍-尖沙咀佐敦": "https://www.hkp.com.hk/zh-hk/list/transaction/尖沙咀-佐敦-D-20050002",  # NAT
     "九龍-又一村石硤尾": "https://www.hkp.com.hk/zh-hk/list/transaction/又一村-石硤尾-D-20060001",
@@ -128,12 +105,6 @@ from datetime import datetime
     "南區-赤柱舂磡角": "https://www.hkp.com.hk/zh-hk/list/transaction/赤柱-舂磡角-D-10030008",
     "南區-黃竹坑深灣": "https://www.hkp.com.hk/zh-hk/list/transaction/黃竹坑-深灣-D-10030005",
     "南區-香港仔田灣": "https://www.hkp.com.hk/zh-hk/list/transaction/香港仔-田灣-D-10030004",
-'''
-# 区域URL字典
-REGION_URLS = {
-
-    "港島東-鰂魚涌": "https://www.hkp.com.hk/zh-hk/list/transaction/鰂魚涌-D-10040008",  # NAT
-
 }
 
 
@@ -157,7 +128,7 @@ def hk_property_scraper():
         with open(master_file, 'w', newline='', encoding='utf-8-sig') as f:
             writer = csv.writer(f)
             writer.writerow(
-                ['区域', '子区域', '房产名称', '位置', '成交日期', '户型', '价格(HKD)', '面积(呎)', '单价', '特色'])
+                ['区域', '子区域', '房产名称', '位置', '成交日期', '户型', '价格(HKD)', '面积(呎)', '单价', '特色', '房龄', '朝向', '开发商', '几手信息'])
 
         # 遍历每个区域
         for region_name, url in REGION_URLS.items():
@@ -177,7 +148,7 @@ def hk_property_scraper():
                     writer = csv.writer(f)
                     writer.writerow(
                         ['区域', '子区域', '房产名称', '位置', '成交日期', '户型', '价格(HKD)', '面积(呎)', '单价',
-                         '特色'])
+                         '特色', '房龄', '朝向', '开发商', '几手信息'])
 
                 # 爬取最多50页
                 current_page = 1
@@ -259,6 +230,74 @@ def hk_property_scraper():
                                 features_texts.append(feature_spans.nth(i).inner_text().strip())
                             features = ' | '.join(features_texts) if features_texts else 'N/A'
 
+
+                            ##
+                            try:
+                                # 获取当前页面
+                                main_page = page
+
+                                # 点击房产链接并等待新页面打开
+                                link = prop.locator('a')
+                                link.click()
+
+                                # 等待新页面加载
+                                new_page = page.context.wait_for_event('page')  # 等待新页面打开
+
+                                # 确保新页面已完全加载
+                                new_page.wait_for_selector('.sc-zu92u1-3.sc-zu92u1-5.sc-zu92u1-6.lkhdrh',
+                                                           state="attached", timeout=15000)
+
+                                # 获取房龄和朝向等详细信息
+                                age = new_page.locator(
+                                    '.sc-zu92u1-4.sc-zu92u1-7.piXPP').inner_text().strip() if new_page.locator(
+                                    '.sc-zu92u1-4.sc-zu92u1-7.piXPP').count() > 0 else 'N/A'
+                                orientation = new_page.locator(
+                                    '.sc-zu92u1-4.sc-zu92u1-7.geTrgf').inner_text().strip() if new_page.locator(
+                                    '.sc-zu92u1-4.sc-zu92u1-7.geTrgf').count() > 0 else 'N/A'
+                                #.sc-13cmw9h-4.kEtHKR
+                                # developer_element.text_content().strip()
+                                if new_page.locator('.sc-13cmw9h-4.kEtHKR').count() > 0:
+                                    # 如果找到开发商信息，并且该信息是多行的
+                                    developer_text = new_page.locator(
+                                        '.sc-13cmw9h-4.kEtHKR').first.text_content().strip()
+
+                                    # 按换行符分割开发商信息
+                                    developer_list = developer_text.split('\n')  # 根据换行符分割文本
+
+                                    # 提取第二个开发商名称（如果有多个开发商）
+                                    developer = developer_list[1].strip() if len(developer_list) > 1 else 'N/A'
+                                elif new_page.locator('.sc-1gd06yc-0.jkqPxV').count() > 1:
+                                    # 如果找到多个开发商信息，选择第二个
+                                    developers = new_page.locator('.sc-1gd06yc-0.jkqPxV')
+
+                                    # 使用 text_content 来获取开发商信息，并根据换行符分割
+                                    developer_text = developers.nth(
+                                        1).text_content().strip() if developers.count() > 1 else 'N/A'
+
+                                    # 分割开发商信息并提取第二个开发商（按换行符分割）
+                                    developer_list = developer_text.split('\n')  # 根据换行符分割文本
+                                    developer = developer_list[1].strip() if len(developer_list) > 1 else 'N/A'
+                                else:
+                                    # 如果都没有找到开发商信息，返回 'N/A'
+                                    developer = 'N/A'
+
+                                ownership = new_page.locator(
+                                    '.sc-1p803b8-34.hzeNwL').first.inner_text().strip() if new_page.locator(
+                                    '.sc-1p803b8-34.hzeNwL').count() > 0 else 'N/A'
+
+                                # 返回原页面
+                                main_page.bring_to_front()
+
+                                # 关闭新页面，释放资源
+                                new_page.close()
+
+                            except Exception as e:
+                                print(f"处理条目时发生错误: {e}")
+
+                            ##
+
+
+
                             # 写入数据
                             row_data = [
                                 main_region,
@@ -270,7 +309,11 @@ def hk_property_scraper():
                                 full_price,
                                 area,
                                 unit_price,
-                                features
+                                features,
+                                age,
+                                orientation,
+                                developer,
+                                ownership
                             ]
 
                             # 写入区域文件
@@ -289,6 +332,9 @@ def hk_property_scraper():
                         except Exception as e:
                             print(f"  ✕ 条目处理失败: {str(e)}")
                             continue
+
+
+
 
                     # 使用你原来的翻页逻辑
                     if current_page <= 3:
